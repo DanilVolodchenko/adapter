@@ -1,4 +1,4 @@
-from typing import TypeVar, Generic, NoReturn
+from typing import TypeVar, Generic, NoReturn, Type
 from collections.abc import Callable
 from typing import Any
 import threading
@@ -69,6 +69,7 @@ class InitCommand(ICommand):
             self.root_scope['IoC.Dependency.Register'] = lambda *args: RegisterDependencyCommand(args[0], args[1])
             self.root_scope['IoC.Scope.Root.Get'] = lambda *args: self.root_scope
             self.root_scope['IoC.Scope.Current.Get'] = lambda *args: self.current_scope
+            self.root_scope['Adapter'] = lambda *args: self.get_adapter(args[0], args[1])
 
             IoC[ICommand].resolve('UpdateIoCStrategy',
                                   DependencyResolver(self.root_scope, self.current_scope).resolve).execute()
@@ -98,24 +99,17 @@ class InitCommand(ICommand):
     def get_parent_scope(self) -> NoReturn:
         raise ValueError('Root scope have no parent scope')
 
+    def get_adapter(self, interface: Type[Any], obj: Any):
+        from adapter import DynamicAdapterFactory
+        adapter_factory = DynamicAdapterFactory[interface]().create_adapter_factory()
+        return adapter_factory.create(obj)
+
 
 class IoC(Generic[T]):
     _strategy: Callable[[str, Any], T]
 
     @classmethod
-    def resolve(cls, dependency: str, *args):
+    def resolve(cls, dependency: str, *args) -> T:
         if dependency == 'UpdateIoCStrategy':
             return UpdateIoCStrategy(args[0])
         return cls._strategy(dependency, *args)
-
-
-if __name__ == '__main__':
-    InitCommand().execute()
-
-    scope = IoC[dict].resolve('IoC.Scope.Create')
-    IoC[ICommand].resolve('IoC.Dependency.Register', 'Test2', lambda: 12344).execute()
-
-    IoC[None].resolve('IoC.Scope.Current.Set', scope)
-    IoC[ICommand].resolve('IoC.Dependency.Register', 'Test', lambda: 1234).execute()
-    print(IoC[int].resolve('Test'))
-    print(IoC[int].resolve('Test2'))

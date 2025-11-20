@@ -1,22 +1,9 @@
 from typing import TypeVar, Generic, Any
 
-from interfaces import IAdapterFactory, IMovingObj
+from interfaces import IAdapterFactory, ICommand
 from ioc import IoC, InitCommand
 
 T = TypeVar('T')
-
-
-class SpaceShip(IMovingObj):
-    def __init__(self, location):
-        self._location = location
-
-    @property
-    def location(self):
-        return self._location
-
-    @location.setter
-    def location(self, value):
-        self._location = value
 
 
 class DynamicAdapterFactory(Generic[T]):
@@ -31,7 +18,7 @@ class DynamicAdapterFactory(Generic[T]):
         factory_class_name = adapter_class_name + 'Factory'  # MovingObjAdapterFactory
 
         # |-------------------------------------------|
-        #     Динамическое создание класса адаптера
+        #    Динамическое создание класса адаптера
         # |-------------------------------------------|
 
         adapter_attrs = {}
@@ -47,10 +34,10 @@ class DynamicAdapterFactory(Generic[T]):
                     return lambda self: IoC[Any].resolve(key, self._obj)
 
                 def make_setter(key: str):
-                    return lambda self, value: IoC[Any].resolve(key, self._obj, value).execute()
+                    return lambda self, value: IoC[ICommand].resolve(key, self._obj, value).execute()
 
                 def make_deleter(key: str):
-                    return lambda self: IoC[Any].resolve(key, self._obj).execute()
+                    return lambda self: IoC[ICommand].resolve(key, self._obj).execute()
 
                 adapter_attrs[attr_name] = property(
                     make_getter(getter_ioc_key), make_setter(setter_ioc_key), make_deleter(deleter_ioc_key)
@@ -60,7 +47,7 @@ class DynamicAdapterFactory(Generic[T]):
 
                 def make_method(method_name: str):
                     return lambda self, *args, **kwargs: IoC.resolve(
-                        f"{interface_name}.{method_name}", self._obj, *args, **kwargs
+                        f"{interface_name}.Method.{method_name}", self._obj, *args
                     )
 
                 adapter_attrs[attr_name] = make_method(attr_name)
@@ -83,13 +70,3 @@ class DynamicAdapterFactory(Generic[T]):
         )
 
         return adapter_factory_class()
-
-
-if __name__ == '__main__':
-    InitCommand().execute()
-    factory = DynamicAdapterFactory[IMovingObj]().create_adapter_factory()  # MovingObjAdapterFactory ->
-    obj = factory.create(SpaceShip(1234))
-    obj.location = 5
-    print(obj.location)
-    # разрешать зависимости нужно так IoC[IGameItem].resolve('Factory')
-    # print(obj)

@@ -2,18 +2,6 @@ import abc
 from collections.abc import Callable
 
 
-class IMovingObj(abc.ABC):
-
-    @property
-    @abc.abstractmethod
-    def location(self):
-        ...
-
-    @location.setter
-    @abc.abstractmethod
-    def location(self, value):
-        ...
-
 
 class ICommand(abc.ABC):
 
